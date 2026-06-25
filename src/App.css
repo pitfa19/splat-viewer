@@ -151,6 +151,18 @@ body,
   font-weight: 600;
   padding: 8px !important;
 }
+.sv-export {
+  background: #b4453a !important;
+  border-color: #b4453a !important;
+  color: #fff;
+  font-weight: 600;
+  padding: 8px !important;
+}
+.sv-export:disabled {
+  opacity: 1 !important;
+  background: #6b2a24 !important;
+  border-color: #6b2a24 !important;
+}
 .sv-list {
   list-style: none;
   margin: 0;

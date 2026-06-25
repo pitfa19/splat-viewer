@@ -12,9 +12,12 @@ client-side; your splat files never leave the browser.
 
 - Load **any** splat at runtime via file picker or drag-and-drop (no files bundled).
 - Load **multiple** models and switch between them; each pose is tagged with its model.
-- Orbit / pan / zoom, adjustable FOV, optional **180° flip** for Y-down exports.
+- Orbit / pan / zoom, adjustable FOV, **180° flip** (on by default — most trained
+  3DGS / SuperSplat exports are Y-down; untick for already-upright splats).
 - **Capture** poses; reorder, rename, delete, and **fly back** to refine them.
 - **▶ Play motion** animates the camera through your poses; **Scrub** does it manually.
+- **⤓ Export video** records the camera flight to a file (MP4 where the browser
+  supports it, otherwise WebM) — for marketing clips.
 - **Export / copy `poses.json`**.
 
 ## Run it
@@ -42,12 +45,16 @@ static host.
 
 1. **Load** one or more splat files. The camera auto-frames each new model.
 2. **Navigate:** drag to orbit · shift- or right-drag to pan · wheel to zoom · FOV slider.
-   Toggle **Flip 180° (X)** if a model loads upside down.
+   **Flip 180° (X)** is on by default; untick it if a model loads upside down.
 3. **◉ Capture pose** to record the current camera. Captured poses appear in the list:
    - **↗** fly back to a pose · **↑ ↓** reorder · **✕** delete · rename inline.
 4. With 2+ poses, **▶ Play motion** flies the camera through them in order; **Scrub**
    moves through the path manually. Model switches happen at a segment's midpoint.
-5. **↓ poses.json** to export (or **⧉ copy**).
+5. **⤓ Export video** records that same flight to a video file. Recording happens in
+   real time at the canvas's current size, so size the window to the resolution/aspect
+   you want first; the UI panel is not captured. Output is MP4 where the browser
+   supports it (Chrome), otherwise WebM.
+6. **↓ poses.json** to export the keyframes (or **⧉ copy**).
 
 ## `poses.json` format
 

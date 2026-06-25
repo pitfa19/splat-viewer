@@ -36,6 +36,7 @@ export default function App() {
   const [readout, setReadout] = useState<Pose | null>(null);
   const [fov, setFov] = useState(50);
   const [playing, setPlaying] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   fovRef.current = fov;
   framesRef.current = keyframes;
@@ -140,7 +141,9 @@ export default function App() {
       let n = 2;
       while (labels.has(label)) label = `${base} (${n++})`;
       labels.add(label);
-      added.push({ label, filename: f.name, url: URL.createObjectURL(f), flip: false });
+      // Default flip ON: most trained 3DGS / SuperSplat exports are Y-down, so
+      // they load upright. Untick for a splat that's already right-way-up.
+      added.push({ label, filename: f.name, url: URL.createObjectURL(f), flip: true });
     }
     const next = [...models, ...added];
     modelsRef.current = next; // sync now so ensureModel sees the new model
@@ -224,6 +227,45 @@ export default function App() {
     setPlaying(false);
     modeRef.current = "preview";
     applyPreview(t);
+  };
+
+  // Record the camera flight to a video file by capturing the canvas stream
+  // while the Play motion runs. Captures canvas pixels only — the UI panel (a
+  // separate DOM element) never appears in the video.
+  const exportVideo = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || recording || keyframes.length < 2) return;
+    const mime = pickVideoMime();
+    if (!mime) {
+      setStatus("video export unsupported");
+      return;
+    }
+    const stream = canvas.captureStream(60);
+    const chunks: BlobPart[] = [];
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 16_000_000 });
+    rec.ondataavailable = (e) => {
+      if (e.data.size) chunks.push(e.data);
+    };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `motion.${mime.includes("mp4") ? "mp4" : "webm"}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setRecording(false);
+      setStatus("ready");
+    };
+    setRecording(true);
+    setStatus("recording…");
+    rec.start();
+    // Drive the same motion as Play, then stop the recorder when it ends.
+    playRef.current = { active: true, t: 0 };
+    modeRef.current = "preview";
+    setPlaying(true);
+    const durationMs = (keyframes.length - 1) * SECONDS_PER_SEGMENT * 1000;
+    window.setTimeout(() => rec.state !== "inactive" && rec.stop(), durationMs + 500);
   };
 
   const json = JSON.stringify(keyframes, null, 2);
@@ -325,7 +367,7 @@ export default function App() {
           />
         </label>
 
-        <button className="sv-capture" onClick={capture} disabled={!activeLabel}>
+        <button className="sv-capture" onClick={capture} disabled={!activeLabel || recording}>
           ◉ Capture pose
         </button>
 
@@ -351,8 +393,11 @@ export default function App() {
 
         {keyframes.length >= 2 && (
           <>
-            <button className="sv-play" onClick={playing ? stop : play}>
-              {playing ? "■ Stop" : "▶ Play motion"}
+            <button className="sv-play" onClick={playing ? stop : play} disabled={recording}>
+              {playing && !recording ? "■ Stop" : "▶ Play motion"}
+            </button>
+            <button className="sv-export" onClick={exportVideo} disabled={recording}>
+              {recording ? "● recording…" : "⤓ Export video"}
             </button>
             <label className="sv-range">
               Scrub
@@ -415,6 +460,21 @@ function lerpPose(a: Pose, b: Pose, t: number): Pose {
     ],
     fov: lerp(a.fov, b.fov, t),
   };
+}
+
+// Pick the best supported recording container/codec — MP4/H.264 (best for video
+// editors) when available, else WebM.
+function pickVideoMime(): string | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  const types = [
+    "video/mp4;codecs=avc1.640028",
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ];
+  for (const t of types) if (MediaRecorder.isTypeSupported(t)) return t;
+  return null;
 }
 
 // Stable per-model badge colour from its label.
