@@ -1,0 +1,16 @@
+# dependencies / build
+node_modules
+dist
+*.tsbuildinfo
+
+# splat models — never commit these (often large, often not ours)
+*.sog
+*.ply
+*.splat
+*.spz
+
+# misc
+.DS_Store
+*.local
+.env
+.env.*
