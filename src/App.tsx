@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createViewer, type Viewer } from "./splat/viewer";
 import { OrbitControls } from "./splat/orbit";
+import { buildRoute } from "./splat/route";
 import type { Keyframe, Pose } from "./splat/types";
 
 // Browser splat viewer + pose editor: load a .sog/.ply, fly around, capture
@@ -25,9 +26,11 @@ export default function App() {
   const loadedRef = useRef<string | null>(null); // label currently in the viewer
   const modelsRef = useRef<LoadedModel[]>([]);
   const framesRef = useRef<Keyframe[]>([]);
+  const seqRef = useRef<Keyframe[]>([]); // sequence currently being animated (full list or a route)
   const framedRef = useRef<Set<string>>(new Set()); // models already auto-framed
   const playRef = useRef({ active: false, t: 0 });
   const lastPoseRef = useRef<Pose | null>(null);
+  const captureRef = useRef<() => void>(() => {}); // latest capture(), for the Space shortcut
 
   const [models, setModels] = useState<LoadedModel[]>([]);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
@@ -59,11 +62,11 @@ export default function App() {
       viewer.onUpdate((dt) => {
         if (modeRef.current === "orbit") {
           viewer.camera.camera!.fov = fovRef.current;
-          orbit.update();
+          orbit.update(dt);
           return;
         }
         if (playRef.current.active) {
-          const max = framesRef.current.length - 1;
+          const max = seqRef.current.length - 1;
           playRef.current.t = Math.min(max, playRef.current.t + dt * SPEED);
           applyPreview(playRef.current.t);
           if (playRef.current.t >= max) {
@@ -83,6 +86,22 @@ export default function App() {
       viewerRef.current?.dispose();
       viewerRef.current = null;
     };
+  }, []);
+
+  // Space = capture pose. Skipped while typing in a field, and only in orbit mode
+  // (not during playback/recording). preventDefault stops the page scrolling and
+  // stops a focused button from also firing, so it's exactly one capture.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (modeRef.current !== "orbit") return;
+      e.preventDefault();
+      captureRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // Live pose readout (throttled — never re-render per frame).
@@ -161,7 +180,7 @@ export default function App() {
   };
 
   const applyPreview = (t: number) => {
-    const frames = framesRef.current;
+    const frames = seqRef.current;
     if (frames.length < 2) return;
     const i = Math.min(Math.floor(t), frames.length - 2);
     const pose = lerpPose(frames[i], frames[i + 1], ease(t - i));
@@ -180,6 +199,7 @@ export default function App() {
 
   const play = () => {
     if (framesRef.current.length < 2) return;
+    seqRef.current = framesRef.current.slice(); // Play motion = the whole list in order
     playRef.current = { active: true, t: 0 };
     modeRef.current = "preview";
     setPlaying(true);
@@ -198,6 +218,7 @@ export default function App() {
     const pose = v.getPose(o.target);
     setKeyframes((k) => [...k, { id: `${activeLabel}-${k.length + 1}`, model: activeLabel, ...pose }]);
   };
+  captureRef.current = capture; // keep the Space shortcut bound to the current closure
 
   const flyTo = (kf: Keyframe) => {
     playRef.current.active = false;
@@ -206,6 +227,29 @@ export default function App() {
     ensureModel(kf.model);
     orbitRef.current?.setFromPose(kf);
     setFov(Math.round(kf.fov));
+  };
+
+  // Animated, routed flight to a pose: from where the camera is now, hop through
+  // nearby captured poses to reach the clicked one (see buildRoute). Falls back
+  // to an instant snap when there's nothing to traverse.
+  const routeTo = (target: Keyframe, index: number) => {
+    const v = viewerRef.current;
+    const o = orbitRef.current;
+    if (!v || !o) return;
+    const start: Keyframe = {
+      ...v.getPose(o.target), // live camera = the route's first waypoint
+      id: "_start",
+      model: loadedRef.current ?? target.model,
+    };
+    const route = buildRoute(framesRef.current, index, start);
+    if (route.length < 2) {
+      flyTo(target);
+      return;
+    }
+    seqRef.current = route;
+    playRef.current = { active: true, t: 0 };
+    modeRef.current = "preview";
+    setPlaying(true);
   };
 
   const move = (i: number, dir: -1 | 1) =>
@@ -225,6 +269,7 @@ export default function App() {
   const scrub = (t: number) => {
     playRef.current.active = false;
     setPlaying(false);
+    seqRef.current = framesRef.current.slice(); // Scrub walks the full timeline
     modeRef.current = "preview";
     applyPreview(t);
   };
@@ -367,8 +412,13 @@ export default function App() {
           />
         </label>
 
-        <button className="sv-capture" onClick={capture} disabled={!activeLabel || recording}>
-          ◉ Capture pose
+        <button
+          className="sv-capture"
+          onClick={capture}
+          disabled={!activeLabel || recording}
+          title="Capture the current camera as a pose (Space)"
+        >
+          ◉ Capture pose <span className="sv-kbd">space</span>
         </button>
 
         <ol className="sv-list">
@@ -382,7 +432,7 @@ export default function App() {
                 {kf.model.slice(0, 1).toUpperCase()}
               </span>
               <input className="sv-name" value={kf.id} onChange={(e) => rename(i, e.target.value)} />
-              <button title="fly to" onClick={() => flyTo(kf)}>↗</button>
+              <button title="fly to (routed)" onClick={() => routeTo(kf, i)}>↗</button>
               <button title="up" onClick={() => move(i, -1)}>↑</button>
               <button title="down" onClick={() => move(i, 1)}>↓</button>
               <button title="delete" onClick={() => remove(i)}>✕</button>
@@ -429,7 +479,11 @@ export default function App() {
           </pre>
         )}
 
-        <p className="sv-hint">drag = orbit · shift/right-drag = pan · wheel = zoom</p>
+        <p className="sv-hint">
+          drag = orbit · shift/right-drag = pan · wheel = zoom
+          <br />
+          WASD / arrows = move · Q/E = down/up · Shift = faster · Space = capture
+        </p>
       </div>
     </div>
   );

@@ -144,6 +144,19 @@ body,
   font-weight: 600;
   padding: 8px !important;
 }
+.sv-kbd {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.78em;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  vertical-align: middle;
+}
 .sv-play {
   background: #3a52a8 !important;
   border-color: #3a52a8 !important;

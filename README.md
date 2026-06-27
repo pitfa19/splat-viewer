@@ -12,9 +12,13 @@ client-side; your splat files never leave the browser.
 
 - Load **any** splat at runtime via file picker or drag-and-drop (no files bundled).
 - Load **multiple** models and switch between them; each pose is tagged with its model.
-- Orbit / pan / zoom, adjustable FOV, **180° flip** (on by default — most trained
-  3DGS / SuperSplat exports are Y-down; untick for already-upright splats).
-- **Capture** poses; reorder, rename, delete, and **fly back** to refine them.
+- Orbit / pan / zoom + **WASD / arrow-key fly-through** (Q/E down/up, Shift to boost),
+  adjustable FOV, **180° flip** (on by default — most trained 3DGS / SuperSplat
+  exports are Y-down; untick for already-upright splats).
+- **Capture** poses; reorder, rename, delete, and **↗ fly back** to refine them —
+  the fly-back is a **routed flight** that hops through your nearby captured poses
+  to reach the target (so it follows navigable space instead of cutting straight
+  through the splat).
 - **▶ Play motion** animates the camera through your poses; **Scrub** does it manually.
 - **⤓ Export video** records the camera flight to a file (MP4 where the browser
   supports it, otherwise WebM) — for marketing clips.
@@ -45,9 +49,12 @@ static host.
 
 1. **Load** one or more splat files. The camera auto-frames each new model.
 2. **Navigate:** drag to orbit · shift- or right-drag to pan · wheel to zoom · FOV slider.
+   **WASD** or **arrow keys** fly the camera (Q/E down/up, hold Shift for a speed boost).
    **Flip 180° (X)** is on by default; untick it if a model loads upside down.
-3. **◉ Capture pose** to record the current camera. Captured poses appear in the list:
-   - **↗** fly back to a pose · **↑ ↓** reorder · **✕** delete · rename inline.
+3. **◉ Capture pose** (or press **Space**) to record the current camera. Captured
+   poses appear in the list:
+   - **↗** fly to a pose — a routed flight that hops through nearby captured poses
+     to get there · **↑ ↓** reorder · **✕** delete · rename inline.
 4. With 2+ poses, **▶ Play motion** flies the camera through them in order; **Scrub**
    moves through the path manually. Model switches happen at a segment's midpoint.
 5. **⤓ Export video** records that same flight to a video file. Recording happens in

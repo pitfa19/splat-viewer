@@ -52,8 +52,13 @@ export async function createViewer(
 ): Promise<Viewer> {
   const device = await createGraphicsDevice(canvas, {
     deviceTypes: ["webgl2"],
-    antialias: true,
+    // Splats are inherently soft — MSAA buys almost nothing but costs real time.
+    antialias: false,
   });
+  // Splat rendering is fragment-bound. On a HiDPI/retina screen RESOLUTION_AUTO
+  // would render at devicePixelRatio² the pixels (2× display = 4× the work), so
+  // cap it: a large FPS win for a barely-visible sharpness drop.
+  device.maxPixelRatio = Math.min(window.devicePixelRatio, 1.5);
 
   const opts = new AppOptions();
   opts.graphicsDevice = device;
